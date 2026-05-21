@@ -1,0 +1,207 @@
+# ============================================================
+# playbook.yml
+# Configure le cluster GKE pour le projet BDA :
+#   1. Installe Helm (si pas présent)
+#   2. Crée les namespaces nécessaires
+#   3. Installe Nginx Ingress Controller
+#   4. Installe ArgoCD
+#   5. Affiche le mot de passe admin ArgoCD
+# ============================================================
+
+---
+- name: "Configuration du cluster GKE — Projet BDA"
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  vars:
+    # Versions fixes pour la stabilité lors de la présentation
+    argocd_version: "v2.10.1"
+    nginx_ingress_chart_version: "4.10.0"
+
+    # Namespaces du projet
+    namespaces:
+      - argocd
+      - ingress-nginx
+      - bda
+
+  tasks:
+    # ──────────────────────────────────────────────────────
+    # ÉTAPE 1 : Vérifier que kubectl est bien connecté à GKE
+    # ──────────────────────────────────────────────────────
+    - name: "Vérification — kubectl connecté au cluster GKE"
+      shell: kubectl get nodes --no-headers | wc -l
+      register: node_count
+      changed_when: false
+
+    - name: "Afficher le nombre de nodes détectés"
+      debug:
+        msg: "✅ {{ node_count.stdout }} node(s) GKE détecté(s)"
+
+    - name: "Échec si aucun node trouvé"
+      fail:
+        msg: "❌ kubectl n'est pas connecté au cluster GKE. Lancez : gcloud container clusters get-credentials bda-cluster --zone europe-west1-b --project project-919f0101-d717-4509-b40"
+      when: node_count.stdout | int == 0
+
+    # ──────────────────────────────────────────────────────
+    # ÉTAPE 2 : Installer Helm
+    # ──────────────────────────────────────────────────────
+    - name: "Vérifier si Helm est installé"
+      shell: helm version --short 2>/dev/null || echo "not_installed"
+      register: helm_check
+      changed_when: false
+
+    - name: "Installer Helm (si absent)"
+      shell: |
+        curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+      when: "'not_installed' in helm_check.stdout"
+
+    - name: "Confirmer la version de Helm"
+      shell: helm version --short
+      register: helm_version
+      changed_when: false
+
+    - name: "Afficher la version de Helm"
+      debug:
+        msg: "✅ Helm installé : {{ helm_version.stdout }}"
+
+    # ──────────────────────────────────────────────────────
+    # ÉTAPE 3 : Créer les namespaces
+    # ──────────────────────────────────────────────────────
+    - name: "Créer les namespaces du projet"
+      shell: |
+        kubectl get namespace {{ item }} 2>/dev/null || \
+        kubectl create namespace {{ item }}
+      loop: "{{ namespaces }}"
+      changed_when: false
+
+    - name: "Vérifier les namespaces créés"
+      shell: kubectl get namespaces | grep -E "argocd|ingress-nginx|bda"
+      register: ns_list
+      changed_when: false
+
+    - name: "Afficher les namespaces"
+      debug:
+        msg: "✅ Namespaces :\n{{ ns_list.stdout }}"
+
+    # ──────────────────────────────────────────────────────
+    # ÉTAPE 4 : Installer Nginx Ingress Controller
+    # ──────────────────────────────────────────────────────
+    - name: "Ajouter le repo Helm Nginx Ingress"
+      shell: |
+        helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
+        helm repo update
+      changed_when: false
+
+    - name: "Vérifier si Nginx Ingress est déjà installé"
+      shell: helm list -n ingress-nginx | grep ingress-nginx || echo "not_installed"
+      register: nginx_installed
+      changed_when: false
+
+    - name: "Installer Nginx Ingress Controller"
+      shell: |
+        helm upgrade --install ingress-nginx ingress-nginx/ingress-nginx \
+          --namespace ingress-nginx \
+          --version {{ nginx_ingress_chart_version }} \
+          --set controller.replicaCount=1 \
+          --set controller.resources.requests.cpu=100m \
+          --set controller.resources.requests.memory=128Mi \
+          --set controller.resources.limits.cpu=500m \
+          --set controller.resources.limits.memory=512Mi \
+          --wait \
+          --timeout 5m
+      when: "'not_installed' in nginx_installed.stdout"
+
+    - name: "Attendre que Nginx Ingress soit prêt"
+      shell: |
+        kubectl wait --namespace ingress-nginx \
+          --for=condition=ready pod \
+          --selector=app.kubernetes.io/component=controller \
+          --timeout=120s
+      changed_when: false
+
+    - name: "Récupérer l'IP du Load Balancer Nginx"
+      shell: |
+        kubectl get svc ingress-nginx-controller \
+          -n ingress-nginx \
+          -o jsonpath='{.status.loadBalancer.ingress[0].ip}'
+      register: lb_ip
+      changed_when: false
+      retries: 10
+      delay: 15
+      until: lb_ip.stdout != ""
+
+    - name: "Afficher l'IP du Load Balancer"
+      debug:
+        msg: "✅ IP du Load Balancer GCP : {{ lb_ip.stdout }} — Notez cette IP !"
+
+    # ──────────────────────────────────────────────────────
+    # ÉTAPE 5 : Installer ArgoCD
+    # ──────────────────────────────────────────────────────
+    - name: "Ajouter le repo Helm ArgoCD"
+      shell: |
+        helm repo add argo https://argoproj.github.io/argo-helm
+        helm repo update
+      changed_when: false
+
+    - name: "Vérifier si ArgoCD est déjà installé"
+      shell: helm list -n argocd | grep argocd || echo "not_installed"
+      register: argocd_installed
+      changed_when: false
+
+    - name: "Installer ArgoCD"
+      shell: |
+        helm upgrade --install argocd argo/argo-cd \
+          --namespace argocd \
+          --set configs.params."server\.insecure"=true \
+          --set server.resources.requests.cpu=100m \
+          --set server.resources.requests.memory=256Mi \
+          --set server.resources.limits.cpu=500m \
+          --set server.resources.limits.memory=512Mi \
+          --set repoServer.resources.requests.cpu=100m \
+          --set repoServer.resources.requests.memory=256Mi \
+          --set applicationSet.resources.requests.cpu=50m \
+          --set applicationSet.resources.requests.memory=128Mi \
+          --set notifications.resources.requests.cpu=50m \
+          --set notifications.resources.requests.memory=64Mi \
+          --set dex.enabled=false \
+          --wait \
+          --timeout 8m
+      when: "'not_installed' in argocd_installed.stdout"
+
+    - name: "Attendre que ArgoCD soit complètement prêt"
+      shell: |
+        kubectl wait --namespace argocd \
+          --for=condition=ready pod \
+          --selector=app.kubernetes.io/name=argocd-server \
+          --timeout=300s
+      changed_when: false
+
+    # ──────────────────────────────────────────────────────
+    # ÉTAPE 6 : Récupérer le mot de passe ArgoCD
+    # ──────────────────────────────────────────────────────
+    - name: "Récupérer le mot de passe admin ArgoCD"
+      shell: |
+        kubectl -n argocd get secret argocd-initial-admin-secret \
+          -o jsonpath="{.data.password}" | base64 -d
+      register: argocd_password
+      changed_when: false
+
+    # ──────────────────────────────────────────────────────
+    # RÉSUMÉ FINAL
+    # ──────────────────────────────────────────────────────
+    - name: "═══════════════════════════════════════════════"
+      debug:
+        msg:
+          - "╔══════════════════════════════════════════════╗"
+          - "║     CLUSTER GKE CONFIGURÉ AVEC SUCCÈS !      ║"
+          - "╠══════════════════════════════════════════════╣"
+          - "║ IP Load Balancer  : {{ lb_ip.stdout }}"
+          - "║ ArgoCD Login      : admin"
+          - "║ ArgoCD Password   : {{ argocd_password.stdout }}"
+          - "╠══════════════════════════════════════════════╣"
+          - "║ Accès ArgoCD UI via port-forward :           ║"
+          - "║ kubectl port-forward svc/argocd-server       ║"
+          - "║   -n argocd 8080:80                          ║"
+          - "║ Puis ouvrir : http://localhost:8080           ║"
+          - "╚══════════════════════════════════════════════╝"
