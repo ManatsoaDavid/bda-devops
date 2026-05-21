@@ -1,9 +1,3 @@
-# =============================================================
-# configmap-sql.yaml — Script SQL d'initialisation PostgreSQL
-# Monté dans /docker-entrypoint-initdb.d/ au démarrage
-# ⚠️  Correction : GRANT à versement_user (pas manatsoa_user)
-# =============================================================
-
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -12,10 +6,6 @@ metadata:
   labels: { { - include "bda.labels" . | nindent 4 } }
 data:
   init.sql: |
-    -- ============================================
-    -- CRÉATION DES TABLES
-    -- ============================================
-
     CREATE TABLE IF NOT EXISTS client (
         ncompte     SERIAL PRIMARY KEY,
         nomclient   VARCHAR(100) NOT NULL,
@@ -49,9 +39,6 @@ data:
         created_at  TIMESTAMP DEFAULT NOW()
     );
 
-    -- ============================================
-    -- TRIGGER INSERT
-    -- ============================================
     CREATE OR REPLACE FUNCTION fn_audit_insert_versement()
     RETURNS TRIGGER AS $$
     DECLARE
@@ -84,9 +71,6 @@ data:
         AFTER INSERT ON versement
         FOR EACH ROW EXECUTE PROCEDURE fn_audit_insert_versement();
 
-    -- ============================================
-    -- TRIGGER UPDATE
-    -- ============================================
     CREATE OR REPLACE FUNCTION fn_audit_update_versement()
     RETURNS TRIGGER AS $$
     DECLARE
@@ -121,9 +105,6 @@ data:
         AFTER UPDATE ON versement
         FOR EACH ROW EXECUTE PROCEDURE fn_audit_update_versement();
 
-    -- ============================================
-    -- TRIGGER DELETE
-    -- ============================================
     CREATE OR REPLACE FUNCTION fn_audit_delete_versement()
     RETURNS TRIGGER AS $$
     DECLARE
@@ -156,19 +137,14 @@ data:
         AFTER DELETE ON versement
         FOR EACH ROW EXECUTE PROCEDURE fn_audit_delete_versement();
 
-    -- ============================================
-    -- DONNÉES INITIALES
-    -- ============================================
     INSERT INTO client (nomclient, solde) VALUES
         ('Jean Dupont',  1000.00),
         ('Marie Martin', 2500.00),
         ('Paul Bernard',  500.00);
 
-    -- Mot de passe : password (hash bcrypt)
     INSERT INTO utilisateurs (username, password, role) VALUES
         ('Manatsoa', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'user'),
         ('David',    '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'user');
 
-    -- ⚠️ CORRECTION : versement_user (pas manatsoa_user)
     GRANT ALL ON ALL TABLES    IN SCHEMA public TO versement_user;
     GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO versement_user;
