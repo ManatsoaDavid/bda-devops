@@ -1,0 +1,95 @@
+# =============================================================
+# values.yaml — Configuration de l'application BDA
+# =============================================================
+
+# ── Namespace ─────────────────────────────────────────────
+namespace: bda
+
+# ── Images Docker (Artifact Registry GCP) ─────────────────
+images:
+  backend:
+    repository: europe-west1-docker.pkg.dev/project-919f0101-d717-4509-b40/bda-images/bda-backend
+    tag: "v1.0"
+    pullPolicy: IfNotPresent
+
+  frontend:
+    repository: europe-west1-docker.pkg.dev/project-919f0101-d717-4509-b40/bda-images/bda-frontend
+    tag: "v1.0"
+    pullPolicy: IfNotPresent
+
+  postgres:
+    repository: postgres
+    tag: "16-alpine"
+    pullPolicy: IfNotPresent
+
+# ── Base de données ────────────────────────────────────────
+database:
+  name: versements
+  user: versement_user
+  # Le mot de passe est encodé en base64 dans secret.yaml
+  # Valeur originale : VersementSecret123
+  passwordBase64: VmVyc2VtZW50U2VjcmV0MTIz
+  port: 5432
+  # Taille du disque persistant pour PostgreSQL
+  storageSize: 5Gi
+  storageClass: standard-rwo
+
+# ── Backend PHP ────────────────────────────────────────────
+backend:
+  replicaCount: 2
+  port: 80
+  resources:
+    requests:
+      cpu: 25m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+# ── Frontend React + Nginx ─────────────────────────────────
+frontend:
+  replicaCount: 2
+  port: 80
+  resources:
+    requests:
+      cpu: 10m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+
+# ── PostgreSQL ─────────────────────────────────────────────
+postgres:
+  resources:
+    requests:
+      cpu: 50m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+# ── Ingress ────────────────────────────────────────────────
+ingress:
+  # Utilise nip.io pour accéder via l'IP du Load Balancer
+  # bda.34.53.243.100.nip.io → résout automatiquement vers 34.53.243.100
+  host: "bda.34.53.243.100.nip.io"
+  className: nginx
+
+# ── HPA — Horizontal Pod Autoscaler ───────────────────────
+hpa:
+  backend:
+    minReplicas: 2
+    maxReplicas: 5
+    cpuThreshold: 70
+
+  frontend:
+    minReplicas: 2
+    maxReplicas: 5
+    cpuThreshold: 70
+
+# ── PodDisruptionBudget ────────────────────────────────────
+pdb:
+  backend:
+    minAvailable: 1
+  frontend:
+    minAvailable: 1

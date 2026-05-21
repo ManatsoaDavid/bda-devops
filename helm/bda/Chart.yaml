@@ -1,0 +1,6 @@
+apiVersion: v2
+name: bda
+description: Application BDA - Gestion et Audit des Versements Bancaires
+type: application
+version: 1.0.0
+appVersion: "1.0.0"

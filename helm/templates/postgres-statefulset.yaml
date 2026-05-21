@@ -1,0 +1,135 @@
+# =============================================================
+# postgres-statefulset.yaml
+# PostgreSQL 16 avec stockage persistant (GCE Disk)
+# StatefulSet = identité réseau stable + stockage persistant
+# =============================================================
+
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgres
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "bda.labels" . | nindent 4 }}
+    app: postgres
+spec:
+  serviceName: postgres
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres
+  template:
+    metadata:
+      labels:
+        app: postgres
+    spec:
+      containers:
+        - name: postgres
+          image: {{ .Values.images.postgres.repository }}:{{ .Values.images.postgres.tag }}
+          imagePullPolicy: {{ .Values.images.postgres.pullPolicy }}
+          ports:
+            - containerPort: 5432
+              name: postgres
+
+          # Variables d'environnement depuis le Secret
+          env:
+            - name: POSTGRES_DB
+              valueFrom:
+                secretKeyRef:
+                  name: bda-secret
+                  key: DB_NAME
+
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: bda-secret
+                  key: DB_USER
+
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: bda-secret
+                  key: DB_PASS
+
+          resources:
+            requests:
+              cpu: {{ .Values.postgres.resources.requests.cpu }}
+              memory: {{ .Values.postgres.resources.requests.memory }}
+            limits:
+              cpu: {{ .Values.postgres.resources.limits.cpu }}
+              memory: {{ .Values.postgres.resources.limits.memory }}
+
+          # Vérification que PostgreSQL est prêt à accepter des connexions
+          readinessProbe:
+            exec:
+              command:
+                - pg_isready
+                - -U
+                - versement_user
+                - -d
+                - versements
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            failureThreshold: 6
+
+          livenessProbe:
+            exec:
+              command:
+                - pg_isready
+                - -U
+                - versement_user
+                - -d
+                - versements
+            initialDelaySeconds: 30
+            periodSeconds: 10
+
+          volumeMounts:
+            # Données persistantes de PostgreSQL
+            - name: postgres-data
+              mountPath: /var/lib/postgresql/data
+              subPath: postgres
+
+            # Script init.sql monté depuis le ConfigMap
+            - name: init-sql
+              mountPath: /docker-entrypoint-initdb.d/init.sql
+              subPath: init.sql
+
+      volumes:
+        # ConfigMap contenant init.sql
+        - name: init-sql
+          configMap:
+            name: bda-init-sql
+
+  # PersistentVolumeClaim — disque GCE créé automatiquement par GKE
+  volumeClaimTemplates:
+    - metadata:
+        name: postgres-data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        storageClassName: {{ .Values.database.storageClass }}
+        resources:
+          requests:
+            storage: {{ .Values.database.storageSize }}
+
+---
+# =============================================================
+# Service PostgreSQL — accessible uniquement en interne
+# Nom : "postgres" — utilisé par le backend via DB_HOST
+# =============================================================
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "bda.labels" . | nindent 4 }}
+    app: postgres
+spec:
+  type: ClusterIP
+  selector:
+    app: postgres
+  ports:
+    - port: 5432
+      targetPort: 5432
+      name: postgres

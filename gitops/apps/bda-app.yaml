@@ -1,0 +1,56 @@
+# =============================================================
+# gitops/apps/bda-app.yaml
+# Objet Application ArgoCD
+# ArgoCD surveille helm/bda/ dans le repo GitHub et déploie
+# automatiquement sur le cluster GKE
+# =============================================================
+
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: bda
+  namespace: argocd
+  labels:
+    project: bda-devops
+
+spec:
+  project: default
+
+  # ── Source : votre repo GitHub ──────────────────────────
+  source:
+    repoURL: https://github.com/ManatsoaDavid/bda-devops.git
+    targetRevision: main
+    # Dossier contenant le Helm chart
+    path: helm/bda
+
+    # Configuration Helm
+    helm:
+      releaseName: bda
+      valueFiles:
+        - values.yaml
+
+  # ── Destination : votre cluster GKE ─────────────────────
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: bda
+
+  # ── Politique de synchronisation ────────────────────────
+  syncPolicy:
+    automated:
+      # Supprime les ressources retirées du chart
+      prune: true
+      # Corrige les modifications manuelles du cluster
+      selfHeal: true
+
+    syncOptions:
+      # Crée le namespace bda s'il n'existe pas
+      - CreateNamespace=true
+      # Applique les ressources dans le bon ordre
+      - ServerSideApply=true
+
+    # Retry automatique si le sync échoue
+    retry:
+      limit: 3
+      backoff:
+        duration: 10s
+        maxDuration: 3m
