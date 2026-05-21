@@ -1,0 +1,66 @@
+services:
+
+  # ─────────────────────────────────────────
+  # PostgreSQL — Base de données
+  # ─────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB:       versements
+      POSTGRES_USER:     manatsoa_user
+      POSTGRES_PASSWORD: ${DB_PASS}
+    volumes:
+      # Données persistantes (survivent aux redémarrages)
+      - pgdata:/var/lib/postgresql/data
+      # Script SQL exécuté automatiquement au 1er démarrage
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    networks:
+      - backend-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U manatsoa_user -d versements"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # ─────────────────────────────────────────
+  # Backend PHP — API REST
+  # ─────────────────────────────────────────
+  backend:
+    build: ../backend/AdminBD_PostgreSQL_Backend_PHP
+    environment:
+      DB_HOST: postgres        # ← nom du service, pas localhost !
+      DB_NAME: versements
+      DB_USER: manatsoa_user
+      DB_PASS: ${DB_PASS}
+      DB_PORT: "5432"
+    networks:
+      - backend-net   # parle à postgres
+      - frontend-net  # parle au frontend
+    depends_on:
+      postgres:
+        condition: service_healthy  # attend que postgres soit prêt
+
+  # ─────────────────────────────────────────
+  # Frontend React — Nginx
+  # ─────────────────────────────────────────
+  frontend:
+    build: ../frontend/AdminBD_PostgreSQL_Frontend
+    ports:
+      - "8082:80"        # accessible sur http://localhost
+    networks:
+      - frontend-net   # parle au backend seulement
+    depends_on:
+      - backend
+
+# ─────────────────────────────────────────
+# Réseaux isolés
+# ─────────────────────────────────────────
+networks:
+  frontend-net:   # frontend ↔ backend
+  backend-net:    # backend ↔ postgres (postgres isolé !)
+
+# ─────────────────────────────────────────
+# Volume persistant
+# ─────────────────────────────────────────
+volumes:
+  pgdata:

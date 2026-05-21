@@ -1,0 +1,92 @@
+# ============================================
+# SECRETS — ne JAMAIS mettre sur GitHub
+# ============================================
+
+# Votre mot de passe base de données est ici
+.env
+
+# Tous les .env sauf le .env.production du frontend
+# (car .env.production contient juste VITE_API_URL=/api, pas de secret)
+.env.local
+.env.development
+.env.staging
+
+# Fichiers Terraform avec les credentials GCP et project ID
+*.tfvars
+terraform.tfvars.json
+
+
+# ============================================
+# TERRAFORM — fichiers générés automatiquement
+# ============================================
+
+# Providers téléchargés (plusieurs centaines de MB, inutile dans Git)
+.terraform/
+
+# State local — on utilise un bucket GCS pour ça
+*.tfstate
+*.tfstate.backup
+
+# Plan binaire généré par terraform plan
+tfplan
+
+# Lock file (recommandé de le garder, mais optionnel)
+# .terraform.lock.hcl
+
+
+# ============================================
+# NODE / REACT — frontend
+# ============================================
+
+node_modules/
+dist/
+build/
+.vite/
+.cache/
+
+
+# ============================================
+# KUBERNETES — credentials sensibles
+# ============================================
+
+kubeconfig
+*.kubeconfig
+kube-config
+
+
+# ============================================
+# SYSTÈMES D'EXPLOITATION & IDE
+# ============================================
+
+# macOS
+.DS_Store
+.AppleDouble
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Linux
+*~
+
+# VS Code
+.vscode/
+
+# IntelliJ / PHPStorm
+.idea/
+*.iml
+
+# Vim
+*.swp
+*.swo
+
+
+# ============================================
+# LOGS & FICHIERS TEMPORAIRES
+# ============================================
+
+*.log
+logs/
+tmp/
+temp/
