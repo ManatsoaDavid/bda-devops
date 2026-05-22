@@ -20,6 +20,13 @@ spec:
         target:
           type: Utilization
           averageUtilization: {{ .Values.hpa.backend.cpuThreshold }}
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 60
+      policies:
+        - type: Percent
+          value: 100
+          periodSeconds: 60
 
 ---
 apiVersion: autoscaling/v2
@@ -44,3 +51,10 @@ spec:
         target:
           type: Utilization
           averageUtilization: {{ .Values.hpa.frontend.cpuThreshold }}
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 60
+      policies:
+        - type: Percent
+          value: 100
+          periodSeconds: 60
