@@ -81,18 +81,16 @@ spec:
               cpu: {{ .Values.backend.resources.limits.cpu }}
               memory: {{ .Values.backend.resources.limits.memory }}
           readinessProbe:
-            httpGet:
-              path: /login.php
+            tcpSocket:
               port: 80
-            initialDelaySeconds: 15
-            periodSeconds: 10
+            initialDelaySeconds: 10
+            periodSeconds: 5
             failureThreshold: 3
           livenessProbe:
-            httpGet:
-              path: /login.php
+            tcpSocket:
               port: 80
-            initialDelaySeconds: 30
-            periodSeconds: 15
+            initialDelaySeconds: 20
+            periodSeconds: 10
 
 ---
 apiVersion: v1
