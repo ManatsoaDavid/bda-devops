@@ -49,7 +49,7 @@ export default function Login({ onLogin }) {
                 <Building2 size={40} className="text-blue-300" />
               </div>
               <h1 className="text-2xl font-bold text-white">
-                Versements Bancaires RAmihone Manatsoa David
+                Versements Bancaires RAmihone Manatsoa David hhhhhhhhhhhhhhh
               </h1>
               <p className="text-blue-300 text-sm mt-1">
                 Système de gestion & d'audit
