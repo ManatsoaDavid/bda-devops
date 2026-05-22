@@ -1,16 +1,11 @@
-# =============================================================
-# frontend-deployment.yaml
-# Frontend React + Nginx Alpine
-# Nginx proxifie /api/ vers http://backend:80/
-# =============================================================
-
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: frontend
   namespace: {{ .Values.namespace }}
   labels:
-    {{- include "bda.labels" . | nindent 4 }}
+    app.kubernetes.io/name: bda
+    app.kubernetes.io/instance: {{ .Release.Name }}
     app: frontend
 spec:
   replicas: {{ .Values.frontend.replicaCount }}
@@ -34,7 +29,6 @@ spec:
           ports:
             - containerPort: 80
               name: http
-
           resources:
             requests:
               cpu: {{ .Values.frontend.resources.requests.cpu }}
@@ -42,15 +36,12 @@ spec:
             limits:
               cpu: {{ .Values.frontend.resources.limits.cpu }}
               memory: {{ .Values.frontend.resources.limits.memory }}
-
-          # Vérification que Nginx sert bien le frontend
           readinessProbe:
             httpGet:
               path: /
               port: 80
             initialDelaySeconds: 10
             periodSeconds: 5
-
           livenessProbe:
             httpGet:
               path: /
@@ -59,17 +50,14 @@ spec:
             periodSeconds: 10
 
 ---
-# =============================================================
-# Service Frontend — ClusterIP (exposé via Ingress)
-# =============================================================
-
 apiVersion: v1
 kind: Service
 metadata:
   name: frontend
   namespace: {{ .Values.namespace }}
   labels:
-    {{- include "bda.labels" . | nindent 4 }}
+    app.kubernetes.io/name: bda
+    app.kubernetes.io/instance: {{ .Release.Name }}
     app: frontend
 spec:
   type: ClusterIP

@@ -1,17 +1,11 @@
-# =============================================================
-# backend-deployment.yaml
-# Backend PHP 8.3 + Apache
-# ⚠️  Le Service DOIT s'appeler "backend" car nginx.conf
-#     du frontend contient : proxy_pass http://backend:80/
-# =============================================================
-
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: backend
   namespace: {{ .Values.namespace }}
   labels:
-    {{- include "bda.labels" . | nindent 4 }}
+    app.kubernetes.io/name: bda
+    app.kubernetes.io/instance: {{ .Release.Name }}
     app: backend
 spec:
   replicas: {{ .Values.backend.replicaCount }}
@@ -28,7 +22,6 @@ spec:
       labels:
         app: backend
     spec:
-      # Attendre que PostgreSQL soit prêt avant de démarrer
       initContainers:
         - name: wait-for-postgres
           image: postgres:16-alpine
@@ -40,14 +33,13 @@ spec:
                 echo "En attente de PostgreSQL..."
                 sleep 3
               done
-              echo "PostgreSQL est prêt !"
+              echo "PostgreSQL est pret !"
           env:
             - name: PGPASSWORD
               valueFrom:
                 secretKeyRef:
                   name: bda-secret
                   key: DB_PASS
-
       containers:
         - name: backend
           image: {{ .Values.images.backend.repository }}:{{ .Values.images.backend.tag }}
@@ -55,39 +47,32 @@ spec:
           ports:
             - containerPort: 80
               name: http
-
-          # Variables d'environnement depuis le Secret
           env:
             - name: DB_HOST
               valueFrom:
                 secretKeyRef:
                   name: bda-secret
                   key: DB_HOST
-
             - name: DB_NAME
               valueFrom:
                 secretKeyRef:
                   name: bda-secret
                   key: DB_NAME
-
             - name: DB_USER
               valueFrom:
                 secretKeyRef:
                   name: bda-secret
                   key: DB_USER
-
             - name: DB_PASS
               valueFrom:
                 secretKeyRef:
                   name: bda-secret
                   key: DB_PASS
-
             - name: DB_PORT
               valueFrom:
                 secretKeyRef:
                   name: bda-secret
                   key: DB_PORT
-
           resources:
             requests:
               cpu: {{ .Values.backend.resources.requests.cpu }}
@@ -95,8 +80,6 @@ spec:
             limits:
               cpu: {{ .Values.backend.resources.limits.cpu }}
               memory: {{ .Values.backend.resources.limits.memory }}
-
-          # Vérification que Apache répond
           readinessProbe:
             httpGet:
               path: /login.php
@@ -104,7 +87,6 @@ spec:
             initialDelaySeconds: 15
             periodSeconds: 10
             failureThreshold: 3
-
           livenessProbe:
             httpGet:
               path: /login.php
@@ -113,18 +95,14 @@ spec:
             periodSeconds: 15
 
 ---
-# =============================================================
-# Service Backend — ClusterIP (interne uniquement)
-# Nom OBLIGATOIRE : "backend" pour que le proxy Nginx fonctionne
-# =============================================================
-
 apiVersion: v1
 kind: Service
 metadata:
   name: backend
   namespace: {{ .Values.namespace }}
   labels:
-    {{- include "bda.labels" . | nindent 4 }}
+    app.kubernetes.io/name: bda
+    app.kubernetes.io/instance: {{ .Release.Name }}
     app: backend
 spec:
   type: ClusterIP

@@ -1,23 +1,17 @@
-# =============================================================
-# vpa.yaml — Vertical Pod Autoscaler
-# Mode "Off" = recommandations seulement (pas d'auto-apply)
-# Après 24h, voir les recommandations avec :
-# kubectl describe vpa -n bda
-# =============================================================
-
 apiVersion: autoscaling.k8s.io/v1
 kind: VerticalPodAutoscaler
 metadata:
   name: bda-backend-vpa
-  namespace: { { .Values.namespace } }
-  labels: { { - include "bda.labels" . | nindent 4 } }
+  namespace: {{ .Values.namespace }}
+  labels:
+    app.kubernetes.io/name: bda
+    app.kubernetes.io/instance: {{ .Release.Name }}
 spec:
   targetRef:
     apiVersion: apps/v1
     kind: Deployment
     name: backend
   updatePolicy:
-    # Off = recommandations sans modification automatique
     updateMode: "Off"
   resourcePolicy:
     containerPolicies:
@@ -34,8 +28,10 @@ apiVersion: autoscaling.k8s.io/v1
 kind: VerticalPodAutoscaler
 metadata:
   name: bda-frontend-vpa
-  namespace: { { .Values.namespace } }
-  labels: { { - include "bda.labels" . | nindent 4 } }
+  namespace: {{ .Values.namespace }}
+  labels:
+    app.kubernetes.io/name: bda
+    app.kubernetes.io/instance: {{ .Release.Name }}
 spec:
   targetRef:
     apiVersion: apps/v1
@@ -54,20 +50,16 @@ spec:
           memory: 512Mi
 
 ---
-# =============================================================
-# pdb.yaml — PodDisruptionBudget
-# Garantit qu'au moins 1 pod reste disponible lors des
-# mises à jour ou maintenances des nodes
-# =============================================================
-
 apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:
   name: bda-backend-pdb
-  namespace: { { .Values.namespace } }
-  labels: { { - include "bda.labels" . | nindent 4 } }
+  namespace: {{ .Values.namespace }}
+  labels:
+    app.kubernetes.io/name: bda
+    app.kubernetes.io/instance: {{ .Release.Name }}
 spec:
-  minAvailable: { { .Values.pdb.backend.minAvailable } }
+  minAvailable: {{ .Values.pdb.backend.minAvailable }}
   selector:
     matchLabels:
       app: backend
@@ -77,10 +69,12 @@ apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:
   name: bda-frontend-pdb
-  namespace: { { .Values.namespace } }
-  labels: { { - include "bda.labels" . | nindent 4 } }
+  namespace: {{ .Values.namespace }}
+  labels:
+    app.kubernetes.io/name: bda
+    app.kubernetes.io/instance: {{ .Release.Name }}
 spec:
-  minAvailable: { { .Values.pdb.frontend.minAvailable } }
+  minAvailable: {{ .Values.pdb.frontend.minAvailable }}
   selector:
     matchLabels:
       app: frontend

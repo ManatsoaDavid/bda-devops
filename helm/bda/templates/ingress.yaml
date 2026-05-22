@@ -1,32 +1,21 @@
-# =============================================================
-# ingress.yaml
-# Nginx Ingress — Route le trafic externe vers le frontend
-# URL d'accès : http://bda.34.53.243.100.nip.io
-# nip.io résout automatiquement *.X.X.X.X.nip.io → X.X.X.X
-# =============================================================
-
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: bda-ingress
-  namespace: { { .Values.namespace } }
-  labels: { { - include "bda.labels" . | nindent 4 } }
+  namespace: {{ .Values.namespace }}
+  labels:
+    app.kubernetes.io/name: bda
+    app.kubernetes.io/instance: {{ .Release.Name }}
   annotations:
-    # Utilise la classe Nginx Ingress installée par Ansible
-    nginx.ingress.kubernetes.io/rewrite-target: /
-    # Taille max des requêtes (utile pour les uploads)
     nginx.ingress.kubernetes.io/proxy-body-size: "10m"
-    # Timeout pour le backend PHP
     nginx.ingress.kubernetes.io/proxy-read-timeout: "60"
     nginx.ingress.kubernetes.io/proxy-send-timeout: "60"
 spec:
-  ingressClassName: { { .Values.ingress.className } }
+  ingressClassName: {{ .Values.ingress.className }}
   rules:
-    - host: { { .Values.ingress.host } }
+    - host: {{ .Values.ingress.host }}
       http:
         paths:
-          # Tout le trafic va vers le frontend
-          # Le frontend Nginx gère lui-même le proxy vers /api/
           - path: /
             pathType: Prefix
             backend:
