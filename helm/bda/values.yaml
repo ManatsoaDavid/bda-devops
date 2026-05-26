@@ -7,7 +7,7 @@ images:
     pullPolicy: IfNotPresent
   frontend:
     repository: europe-west1-docker.pkg.dev/project-919f0101-d717-4509-b40/bda-images/bda-frontend
-    tag: "af45d44"
+    tag: "df70c7a"
     pullPolicy: IfNotPresent
   postgres:
     repository: postgres
