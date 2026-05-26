@@ -2,24 +2,23 @@ apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
   name: bda-backend-hpa
-  namespace: { { .Values.namespace } }
+  namespace: bda
   labels:
     app.kubernetes.io/name: bda
-    app.kubernetes.io/instance: { { .Release.Name } }
 spec:
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
     name: backend
-  minReplicas: { { .Values.hpa.backend.minReplicas } }
-  maxReplicas: { { .Values.hpa.backend.maxReplicas } }
+  minReplicas: {{ .Values.hpa.backend.minReplicas }}
+  maxReplicas: {{ .Values.hpa.backend.maxReplicas }}
   metrics:
     - type: Resource
       resource:
         name: cpu
         target:
           type: Utilization
-          averageUtilization: { { .Values.hpa.backend.cpuThreshold } }
+          averageUtilization: {{ .Values.hpa.backend.cpuThreshold }}
   behavior:
     scaleDown:
       stabilizationWindowSeconds: 15
@@ -33,24 +32,23 @@ apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
   name: bda-frontend-hpa
-  namespace: { { .Values.namespace } }
+  namespace: bda
   labels:
     app.kubernetes.io/name: bda
-    app.kubernetes.io/instance: { { .Release.Name } }
 spec:
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
     name: frontend
-  minReplicas: { { .Values.hpa.frontend.minReplicas } }
-  maxReplicas: { { .Values.hpa.frontend.maxReplicas } }
+  minReplicas: {{ .Values.hpa.frontend.minReplicas }}
+  maxReplicas: {{ .Values.hpa.frontend.maxReplicas }}
   metrics:
     - type: Resource
       resource:
         name: cpu
         target:
           type: Utilization
-          averageUtilization: { { .Values.hpa.frontend.cpuThreshold } }
+          averageUtilization: {{ .Values.hpa.frontend.cpuThreshold }}
   behavior:
     scaleDown:
       stabilizationWindowSeconds: 15
